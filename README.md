@@ -6,4 +6,5 @@
 This is an ongoing project regarding to the first chapter of my PhD
 thesis, in which I will use Functional Diversity approach to assess the
 diversity patterns of medium and large sized mammals along an
-environmental gradient. We will present analysis using this approach
+environmental gradient. Here, we will present analysis using this
+approach with the aim of helping conservation management.
