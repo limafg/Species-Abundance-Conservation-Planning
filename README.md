@@ -1,0 +1,9 @@
+
+# Functional diversity as a proxy for conservation planning
+
+## Authors: [Filipe Guimarães Lima](https://orcid.org/0000-0001-5383-2845), [Bárbara Dunck](https://orcid.org/0000-0003-0608-0614), [Paulo De Marco](https://orcid.org/0000-0002-3628-6405), and [Alessandra Bertassoni](https://orcid.org/0000-0002-4806-579X)
+
+This is an ongoing project regarding to the first chapter of my PhD
+thesis, in which I will use Functional Diversity approach to assess the
+diversity patterns of medium and large sized mammals along an
+environmental gradient. We will present analysis using this approach
