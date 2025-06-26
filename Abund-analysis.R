@@ -203,64 +203,103 @@ for (i in 1:nrow(use.cover)){
   }
   }
 
-write.xlsx(use.cover, "uso-val.xlsx")
+write.xlsx(use.cover, "use-val.xlsx")
 
-#Analise preliminar do uso
+#preliminary land use analysis
 
-pca_uso <- PCA(baseuso[,4:14], scale.unit = TRUE, graph = FALSE)
+pca_use <- PCA(use.cover[,4:14], scale.unit = TRUE, graph = FALSE)
 
-# Extrair scores dos indivíduos e loadings das variáveis
-scores=data.frame(pca_uso$ind$coord[, 1:2])  # Primeiro e segundo eixo
-uso.val=read.xlsx("uso-val.xlsx")
-scores$Local=uso.val$Local
+#extracting scores and loadings
+scores=data.frame(pca_use$ind$coord[, 1:2]) #two main axis, first and second
+head(scores)
 
-colnames(scores) <- c("PC1", "PC2")
-scores$Label <- baseuso$Point  # Usa os nomes das linhas como labels
+#table of land use and cover for each point
+use.val=read.xlsx("use-val.xlsx")
 
-loadings <- data.frame(pca_uso$var$coord[, 1:2])  # Primeiro e segundo eixo
+#naming the columns of scores and giving it another one
+colnames(scores)=c("PC1", "PC2")
+head(scores)
+
+#I created a new column named Site directly in use-val.xlsx
+scores$Local=use.val$Local
+scores$Label=use.cover$Point #relate the row names with the points (P1, P2... P30)
+head(scores)
+
+loadings <- data.frame(pca_use$var$coord[, 1:2]) #first and second axis
 colnames(loadings) <- c("PC1", "PC2")
-loadings$Var <- rownames(loadings)
+
+#switching the row names (classes of land use and cover) from Portuguese to English
+
+  # agricultura = Agriculture; agua = Water; APP = PPA; area_urbana = Urban area; 
+  # Campo Rupestre = Rupestrian grassland; floresta estacional decidual = Seasonal forest;
+  # formacao_campestre = Grassland; formacao_savanica = Savanna;
+  # fragmentos_florestais_do_cerrado = Cerrado forest; pastagem = Pastureland;
+  # solo_exposto = Exposed soil
+
+rownames(loadings)=c("Agriculture",	"Water",	"PPA",	"Urban area",	"Rupestrian grassland",	"Seasonal forest", "Grassland",	"Savanna",	"Cerrado forest",	"Pastureland",	"Exposed soil")
+row.names(loadings)
+loadings$Var=rownames(loadings)
+loadings
 
 #plot
 
-# Criar biplot com ggplot2
-var_exp <- pca_uso$eig[1:2, 2]
+#creating a biplot with ggplot2
+var_exp <- pca_use$eig[1:2, 2]
 loadings[,1:2]=2*loadings[,1:2]
 
-ggplot() +
-  geom_text_repel(data = scores, aes(x = PC1, y = PC2, label = Label, color = Local)) +  # Labels dos pontos
-  geom_segment(data = loadings, aes(x = 0, y = 0, xend = PC1, yend = PC2), arrow = arrow(length = unit(0.03, "npc")), color = "black") +  # Vetores dos loadings
-  geom_text_repel(data = loadings, aes(x = PC1, y = PC2, label = Var), color = "black") +  # Labels dos loadings
+biplot.use <- ggplot() +
+  geom_text_repel(data = scores, aes(x = PC1, y = PC2, label = Label, color = Local)) + #labels of the points
+  geom_segment(data = loadings, aes(x = 0, y = 0, xend = PC1, yend = PC2), arrow = arrow(length = unit(0.03, "npc")), color = "black") + #vetors of the loadings
+  geom_text_repel(data = loadings, aes(x = PC1, y = PC2, label = Var), color = "black") + #labels of the loadings
   theme_minimal() +
   labs(
-    x = paste0("PC1 (", round(var_exp[1], 2), "%)"),  # Inclui a variância explicada
-    y = paste0("PC2 (", round(var_exp[2], 2), "%)")   # Inclui a variância explicada
+    x = paste0("PC1 (", round(var_exp[1], 2), "%)"),#includes the explained variance in PC1
+    y = paste0("PC2 (", round(var_exp[2], 2), "%)") #includes the explained variance in PC2
   ) +
   theme(
-    axis.line = element_line(color = "black", linewidth = 0.8),  # Eixos em preto
-    axis.title = element_text(color = "black")  # Labels dos eixos em preto
+    axis.line = element_line(color = "black", linewidth = 0.8), #axis in black
+    axis.title = element_text(color = "black")  #labels of the axis in black
   ) +
-  scale_x_continuous(expand = expansion(mult = 0)) +  # Mantém a origem visível
+  scale_x_continuous(expand = expansion(mult = 0)) +  #keeps the origin visible
   scale_y_continuous(expand = expansion(mult = 0)) +
-  scale_color_manual(values = c("EntPESC" = "darkgoldenrod", "PESCaN" = "darkorange", "Corredor" = "red", "PEMA" = "darkgreen"))
+  scale_color_manual(values = c("Surrounding" = "darkgoldenrod", "PESCaN" = "darkorange", "Corridor" = "red", "PEMA" = "darkgreen"))
 
-baseuso$pc1=scores$PC1
-baseuso$pc2=scores$PC2
-names(baseuso)
-base
+biplot.use
+
+#adding the two main axis to use.cover data frame
+use.cover$pc1=scores$PC1
+use.cover$pc2=scores$PC2
+
+#switching the col names (classes of land use and cover) from Portuguese to English
+colnames(use.cover)
+
+colnames(use.cover)=c("Point", "Long", "Lat", "Agriculture",	"Water",	"PPA",	"Urban area",	"Rupestrian grassland",	"Seasonal forest", "Grassland",	"Savanna",	"Cerrado forest",	"Pastureland",	"Exposed soil", "PC1", "PC2")
+colnames(use.cover)
 
 # Local richness
+
+#base is a data frame containing: Point, all mammal species and their frequencies for each Point, 
+#and coordinates
+
 rich=base
 names(rich)
+
+#selecting the columns containing information on only native mammals
+rich=rich[,c(3,5:12,14,16,18:33)]
 View(rich)
-rich=rich[,c(4,5,7,9:13,15:18,20:23,25:36)]
-View(rich)
-rich[,1:28]=1*(rich[,1:28]>0)
+
+#transforming frequency values into presence/absence
+ncol(rich)
+rich[,1:27]=1*(rich[,1:27]>0)
 S=rowSums(rich)
 base$S=S
 
+#now base contains: Point, all mammal species and their frequencies for each Point, coordinates
+#and S = native mammal richness for each Point
+View(base)
 
-names(baseuso)
-regressao_forestplot(base, baseuso, resposta = "S", preditoras = c("formacao_campestre", "agua", "pastagem","agricultura"))
+#
+names(use.cover)
+regressao_forestplot(base, use.cover, resposta = "S", preditoras = c("formacao_campestre", "agua", "pastagem","agricultura"))
 
 regressao_forestplot(base, baseuso, resposta = "Canis_lupus_familiaris", preditoras = c("formacao_campestre", "agua", "pastagem","agricultura"))
