@@ -12,40 +12,39 @@ library(ggrepel)
 
 ## Additional functions--
 
-regressao_forestplot <- function(base, baseuso, resposta, preditoras) {
-  # Carregar pacotes
+regressao_forestplot <- function(base, use.cover, dependent, predictors) {
   require(ggplot2)
   require(broom)
   require(dplyr)
   require(car)
   require(glue)
   
-  # Verificações
-  if (!(resposta %in% colnames(base))) stop("A variável resposta não está no dataframe 'base'")
-  if (!all(preditoras %in% colnames(baseuso))) stop("Uma ou mais preditoras não estão no dataframe 'baseuso'")
+#checking
+  if (!(dependent %in% colnames(base))) stop("não está no dataframe 'base'")
+  if (!all(predictors %in% colnames(use.cover))) stop("Uma ou mais preditoras não estão no dataframe 'use.cover'")
   
-  # Unir dataframes
-  dados <- cbind(base[resposta], baseuso[preditoras])
-  colnames(dados)[1] <- resposta
+#unit dataframes
+  variables <- cbind(base[dependent], use.cover[predictors])
+  colnames(dados)[1] <- dependent
   
-  # Fórmula
-  formula_reg <- as.formula(paste(resposta, "~", paste(preditoras, collapse = " + ")))
+  # Formula
+  formula_reg <- as.formula(paste(dependent, "~", paste(predictors, collapse = " + ")))
   
-  # Modelo
-  modelo <- lm(formula_reg, data = dados)
-  sum_model <- summary(modelo)
+  # Model
+  model <- lm(formula_reg, data = variables)
+  sum_model <- summary(model)
   
-  # R² e ANOVA
+  # R² and ANOVA
   r2 <- round(sum_model$r.squared, 3)
   f_stat <- round(sum_model$fstatistic[1], 2)
   gl1 <- sum_model$fstatistic[2]
   gl2 <- sum_model$fstatistic[3]
-  p_valor_anova <- formatC(pf(f_stat, gl1, gl2, lower.tail = FALSE), digits = 3, format = "f")
+  p_value_anova <- formatC(pf(f_stat, gl1, gl2, lower.tail = FALSE), digits = 3, format = "f")
   
   # Tidy + VIF
-  tidy_model <- tidy(modelo, conf.int = TRUE) %>%
+  tidy_model <- tidy(model, conf.int = TRUE) %>%
     filter(term != "(Intercept)") %>%
-    mutate(significativo = ifelse(p.value < 0.05, "Significativo", "Não significativo"))
+    mutate(significativo = ifelse(p.value < 0.05, "Significant", "Non-significant"))
   
   vif_valores <- vif(modelo)
   tidy_model$vif <- vif_valores[tidy_model$term]
@@ -60,10 +59,10 @@ regressao_forestplot <- function(base, baseuso, resposta, preditoras) {
               hjust = 0, vjust = 1.5, size = 3.2, color = "black") +
     scale_color_manual(values = c("Significativo" = "darkred", "Não significativo" = "gray40")) +
     labs(
-      title = glue("Forest Plot - Regressão de {resposta}"),
-      subtitle = glue("R² = {r2} | F({gl1}, {gl2}) = {f_stat}, p = {p_valor_anova}"),
-      x = "Estimativa (com IC 95%)",
-      y = "Variáveis preditoras"
+      title = glue("Forest Plot - Regressão de {dependent}"),
+      subtitle = glue("R² = {r2} | F({gl1}, {gl2}) = {f_stat}, p = {p_value_anova}"),
+      x = "Estimate (with IC 95%)",
+      y = "Predictors"
     ) +
     theme_minimal() +
     theme(legend.position = "bottom")
@@ -285,6 +284,8 @@ rich=base
 names(rich)
 
 #selecting the columns containing information on only native mammals
+
+#para facilitar, futuramente criar uma coluna onde as spp. sejam id. com nativas e n-nativas
 rich=rich[,c(3,5:12,14,16,18:33)]
 View(rich)
 
@@ -298,8 +299,8 @@ base$S=S
 #and S = native mammal richness for each Point
 View(base)
 
-#
+#regression analysis
 names(use.cover)
-regressao_forestplot(base, use.cover, resposta = "S", preditoras = c("formacao_campestre", "agua", "pastagem","agricultura"))
+sp.richness=regressao_forestplot(base, use.cover, dependent = "S", predictors = c("Grassland", "Water", "Pastureland","Agriculture"))
 
-regressao_forestplot(base, baseuso, resposta = "Canis_lupus_familiaris", preditoras = c("formacao_campestre", "agua", "pastagem","agricultura"))
+dog=regressao_forestplot(base, use.cover, dependent = "Canis_lupus_familiaris", predictors = c("PPA", "Water", "Pastureland","Agriculture"))
