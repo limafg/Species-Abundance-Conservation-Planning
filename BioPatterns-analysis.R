@@ -1,4 +1,4 @@
-# Abundance analysis
+### Biodiversity patterns analysis
 
 ## Library ----
 library(openxlsx)
@@ -9,6 +9,12 @@ library(tidyr)
 library(FactoMineR)
 library(ggplot2)
 library(ggrepel)
+
+# Read here the mammal data
+base=read.xlsx("site-freq.xlsx")
+
+# Read here land use and cover
+use.cover=read.xlsx("use_val.xlsx")
 
 ## Additional functions--
 
@@ -25,7 +31,7 @@ regressao_forestplot <- function(base, use.cover, dependent, predictors) {
   
 #unit dataframes
   variables <- cbind(base[dependent], use.cover[predictors])
-  colnames(dados)[1] <- dependent
+  #colnames(dados)[1] <- dependent
   
   # Formula
   formula_reg <- as.formula(paste(dependent, "~", paste(predictors, collapse = " + ")))
@@ -44,14 +50,14 @@ regressao_forestplot <- function(base, use.cover, dependent, predictors) {
   # Tidy + VIF
   tidy_model <- tidy(model, conf.int = TRUE) %>%
     filter(term != "(Intercept)") %>%
-    mutate(significativo = ifelse(p.value < 0.05, "Significant", "Non-significant"))
+    mutate(Significant = ifelse(p.value < 0.05, "Significant", "Non-significant"))
   
-  vif_valores <- vif(modelo)
+  vif_valores <- vif(model)
   tidy_model$vif <- vif_valores[tidy_model$term]
   
   # Forest plot
   ggplot(tidy_model, aes(x = estimate, y = reorder(term, estimate),
-                         xmin = conf.low, xmax = conf.high, color = significativo)) +
+                         xmin = conf.low, xmax = conf.high, color = Significant)) +
     geom_point(size = 3) +
     geom_errorbarh(height = 0.2) +
     geom_vline(xintercept = 0, linetype = "dashed", color = "gray40") +
@@ -68,143 +74,8 @@ regressao_forestplot <- function(base, use.cover, dependent, predictors) {
     theme(legend.position = "bottom")
 }
 
-### Data processing
 
-## Input Data
-
-#raw mammal data
-data=read.xlsx("mami-sp.xlsx",1)
-names(data)
-unique(data$Especie)
-
-#coordinates
-latlong=read.xlsx("LatLong.xlsx",1)
-
-#land use and cover
-uso=rast("uso-solo/uso_solo_pescan_pema_2023.tif")
-plot(uso)
-
-## Creating a base table for analysis
-
-#creating a data frame with site ID, latitude and longitude
-base=data.frame(site=latlong$ID, Lat=latlong$Lat, Long=latlong$Long)
-base
-
-#extracting the species names from the raw data without replicates using the function unique()
-spp=unique(data$Especie)
-spp
-
-#adding to the data frame named "base" the species names in columns 
-for (especie in spp) {
-  base[[especie]] = 0
-}
-names(base)
-
-#extracting the sites from the raw mammal data without replicates using the function unique()
-site.ID=unique(data$ID_ponto)
-
-
-#attributing to each site their respective species frequency
-for (p in site.ID){
-  pt=data[data$ID_ponto==p,]
-  print(table(pt$Especie))
-  
-}
-
-## Doing the same steps differently
-
-#creating a data frame with site ID and species
-freq.species <- as.data.frame(table(data$ID_ponto, data$Especie))
-head(freq.species)
-
-#giving names to the columns
-colnames(freq.species) <- c("Point", "Species", "Frequency")
-head(freq.species)
-
-#rearranging data for each species to be placed in a column
-
-base.expand <- freq.species %>%
-  #the function pivot_wider() transpose the data of interest from rows to columns
-pivot_wider(names_from = Species, values_from = Frequency, values_fill = list(Frequency = 0))
-
-base.expand=as.data.frame(base.expand)
-names(base.expand)
-base.expand$Point=as.character(base.expand$Point)
-
-#adjusting the number of rows; some cameras did not work during the sampling period,
-#there were no record of group of interest or there were only false records, 
-#so it was added the missing 
-nrow(base.expand)
-
-empty=c("P2",as.numeric(rep(0,33)))
-base.expand=rbind(base.expand,empty)
-
-empty=c("P11",as.numeric(rep(0,33)))
-base.expand=rbind(base.expand,empty)
-
-empty=c("P15",as.numeric(rep(0,33)))
-base.expand=rbind(base.expand,empty)
-
-empty=c("P18",as.numeric(rep(0,33)))
-base.expand=rbind(base.expand,empty)
-
-empty=c("P22",as.numeric(rep(0,33)))
-base.expand=rbind(base.expand,empty)
-
-empty=c("P25",as.numeric(rep(0,33)))
-base.expand=rbind(base.expand,empty)
-
-#sort the site ID or Point (ex.: P1, P2, P3... P20... P33... P56)
-base.expand <- base.expand %>%
-  mutate(numero = parse_number(Point)) %>%
-  arrange(numero) %>%
-  select(-numero)
-
-#checking if it worked
-base.expand$Point
-base$site
-
-#adding to the data frame base.expand (Point and species' frequencies per point) the coordinates
-base.expand$long=base$Long
-base.expand$lat=base$Lat
-
-write.xlsx(base.expand, "site-freq.xlsx")
-
-
-## Processing land use and cover data
-base=read.xlsx("site-freq.xlsx")
-
-classes=unique(uso)
-use.cover=data.frame(Point=base$Point,Long=base$long,Lat=base$lat)
-classes[,1]
-for (var in classes[,1]) {
-  use.cover[[var]] <- 0
-}
-names(use.cover)
-
-#plotting the sampling sites
-use.cover$Long=as.numeric(use.cover$Long)
-use.cover$Lat=as.numeric(use.cover$Lat)
-use.cover_vect=vect(use.cover, geom = c("Long", "Lat"), crs = "EPSG:32722") 
-plot(use.cover_vect)
-
-#creating a buffer of land use and cover around each sampling point
-for (i in 1:nrow(use.cover)){
-  print(i)
-  point <- use.cover_vect[i, ] #selects a point
-  buffer_point <- buffer(point, width = 1000) #creates a buffer around the point (1 km)
-  m=crop(uso,buffer_point);m=mask(m,buffer_point)
-  g=unique(m)
-  
-  #give the proportion of each class of use and cover within each buffer
-  for (j in g[,1]){
-    use.cover[i,j]=global(m==j,"mean",na.rm=TRUE)
-  }
-  }
-
-write.xlsx(use.cover, "use-val.xlsx")
-
-#preliminary land use analysis
+### Preliminary land use analysis
 
 pca_use <- PCA(use.cover[,4:14], scale.unit = TRUE, graph = FALSE)
 
@@ -213,7 +84,8 @@ scores=data.frame(pca_use$ind$coord[, 1:2]) #two main axis, first and second
 head(scores)
 
 #table of land use and cover for each point
-use.val=read.xlsx("use-val.xlsx")
+use.val=read.xlsx("use_val.xlsx")
+use.cover=read.xlsx("use_val.xlsx")
 
 #naming the columns of scores and giving it another one
 colnames(scores)=c("PC1", "PC2")
@@ -265,6 +137,8 @@ biplot.use <- ggplot() +
 
 biplot.use
 
+ggsave(filename = "Results\\biplot-use.jpeg", plot = biplot.use, width = 25, height = 15, units = "cm", dpi = 300)
+
 #adding the two main axis to use.cover data frame
 use.cover$pc1=scores$PC1
 use.cover$pc2=scores$PC2
@@ -277,21 +151,22 @@ colnames(use.cover)
 
 # Local richness
 
-#base is a data frame containing: Point, all mammal species and their frequencies for each Point, 
+#base is a data frame containing: Point, all mammal species and their frequencies for each Point
 #and coordinates
 
 rich=base
 names(rich)
+View(rich)
 
 #selecting the columns containing information on only native mammals
 
 #para facilitar, futuramente criar uma coluna onde as spp. sejam id. com nativas e n-nativas
-rich=rich[,c(3,5:12,14,16,18:33)]
-View(rich)
+rich=rich[,c(3,4,6:15,18:36)]
+names(rich)
 
 #transforming frequency values into presence/absence
 ncol(rich)
-rich[,1:27]=1*(rich[,1:27]>0)
+rich[,1:31]=1*(rich[,1:31]>0)
 S=rowSums(rich)
 base$S=S
 
@@ -301,6 +176,21 @@ View(base)
 
 #regression analysis
 names(use.cover)
+names(base)
+
 sp.richness=regressao_forestplot(base, use.cover, dependent = "S", predictors = c("Grassland", "Water", "Pastureland","Agriculture"))
+sp.richness
+
+ggsave(filename = "Results\\riqueza.jpeg", plot = sp.richness, width = 25, height = 15, units = "cm", dpi = 300)
 
 dog=regressao_forestplot(base, use.cover, dependent = "Canis_lupus_familiaris", predictors = c("PPA", "Water", "Pastureland","Agriculture"))
+dog
+
+ggsave(filename = "Results\\cachorro.jpeg", plot = dog, width = 25, height = 15, units = "cm", dpi = 300)
+
+catingueiro=regressao_forestplot(base, use.cover, dependent = "Subulo_gouazoubira", predictors = c("Seasonal.forest", "Water", "Cerrado.forest","PPA"))
+catingueiro
+
+ggsave(filename = "Results\\catingueiro.jpeg", plot = catingueiro, width = 25, height = 15, units = "cm", dpi = 300)
+
+### Multispecies regression
